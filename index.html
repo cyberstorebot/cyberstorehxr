@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CyberHaxor Brazil | CC ChkPRO</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { background-color: #0a0a0a; color: #ffffff; font-family: 'Inter', sans-serif; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .card-dark { background-color: #121212; border: 1px solid #1f1f1f; }
+        .stat-card { background-color: #181818; border: 1px solid #262626; }
+        .btn-start { background-color: #10b981; transition: all 0.2s ease; }
+        .btn-start:hover { background-color: #059669; transform: scale(1.02); }
+        .btn-stop { background-color: #ef4444; transition: all 0.2s ease; }
+        .btn-stop:hover { background-color: #dc2626; transform: scale(1.02); }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+    </style>
+</head>
+<body class="flex justify-center p-4 md:p-8">
+
+    <div class="w-full max-w-md flex flex-col gap-6">
+        <div class="text-center mb-4">
+            <h1 class="text-4xl font-black tracking-tighter text-emerald-600 uppercase italic drop-shadow-[0_2px_2px_rgba(0,0,0,1)]">
+                CyberHaxor Brazil
+            </h1>
+        </div>
+
+        <div class="flex p-1 bg-zinc-900 rounded-xl border border-zinc-800">
+            <button onclick="switchTab('stripe')" id="tab-stripe" class="flex-1 py-2 text-xs font-bold rounded-lg transition-all bg-emerald-600 text-white">STRIPE</button>
+            <button onclick="switchTab('mp')" id="tab-mp" class="flex-1 py-2 text-xs font-bold rounded-lg transition-all text-zinc-500 hover:text-zinc-300">MERCADOPAGO</button>
+        </div>
+
+        <div class="card-dark p-4 rounded-2xl shadow-2xl">
+            <textarea id="card-input" rows="4" class="w-full bg-black border border-zinc-800 rounded-xl p-3 text-sm mono text-zinc-300 outline-none focus:border-emerald-500 transition-all" placeholder="CARTAO|MM|YY|CVV"></textarea>
+            <div class="grid grid-cols-2 gap-3 mt-4">
+                <button onclick="startChecking()" class="btn-start py-3 rounded-xl font-bold text-white flex items-center justify-center gap-2"><i data-lucide="play" class="w-4 h-4 fill-current"></i> INICIAR</button>
+                <button onclick="stopChecking()" class="btn-stop py-3 rounded-xl font-bold text-white flex items-center justify-center gap-2"><i data-lucide="square" class="w-4 h-4 fill-current"></i> PARAR</button>
+            </div>
+        </div>
+
+        <div class="flex flex-col gap-4">
+            <div class="flex items-center gap-2 text-zinc-400 font-bold text-sm uppercase tracking-widest"><i data-lucide="bar-chart-3" class="w-4 h-4"></i> Estatísticas</div>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="stat-card p-4 rounded-2xl text-center"><div class="text-zinc-500 text-xs font-bold uppercase mb-1">Aprovadas</div><div id="stat-approved" class="text-emerald-500 text-3xl font-black mono">0</div></div>
+                <div class="stat-card p-4 rounded-2xl text-center"><div class="text-zinc-500 text-xs font-bold uppercase mb-1">Reprovadas</div><div id="stat-rejected" class="text-red-500 text-3xl font-black mono">0</div></div>
+                <div class="stat-card p-4 rounded-2xl text-center"><div class="text-zinc-500 text-xs font-bold uppercase mb-1">Testadas</div><div id="stat-tested" class="text-yellow-500 text-3xl font-black mono">0</div></div>
+                <div class="stat-card p-4 rounded-2xl text-center"><div class="text-zinc-500 text-xs font-bold uppercase mb-1">Carregadas</div><div id="stat-loaded" class="text-blue-500 text-3xl font-black mono">0</div></div>
+            </div>
+        </div>
+
+        <div class="card-dark rounded-2xl overflow-hidden flex flex-col">
+            <div class="p-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50">
+                <div class="flex items-center gap-2 text-emerald-500 font-bold text-sm uppercase"><i data-lucide="check-circle" class="w-4 h-4"></i> Aprovadas</div>
+                <button onclick="copyApproved()" class="p-2 bg-zinc-800 rounded-lg hover:bg-zinc-700 transition-colors"><i data-lucide="copy" class="w-4 h-4 text-zinc-400"></i></button>
+            </div>
+            <div id="approved-list" class="h-48 overflow-y-auto custom-scrollbar p-4 flex flex-col gap-2 mono text-xs"></div>
+        </div>
+
+        <div class="card-dark rounded-2xl overflow-hidden flex flex-col">
+            <div class="p-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50">
+                <div class="flex items-center gap-2 text-red-500 font-bold text-sm uppercase"><i data-lucide="x-circle" class="w-4 h-4"></i> Reprovadas</div>
+            </div>
+            <div id="rejected-list" class="h-48 overflow-y-auto custom-scrollbar p-4 flex flex-col gap-2 mono text-xs"></div>
+        </div>
+
+        <div class="text-center py-6">
+            <a href="https://t.me/parejao" target="_blank" class="text-zinc-500 hover:text-emerald-500 transition-colors text-xs font-medium mono">dev by @parejao</a>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+        let currentGateway = 'stripe';
+        let isRunning = false;
+        let stats = { approved: 0, rejected: 0, tested: 0, loaded: 0 };
+
+        function switchTab(gateway) {
+            currentGateway = gateway;
+            document.getElementById('tab-stripe').className = gateway === 'stripe' ? 'flex-1 py-2 text-xs font-bold rounded-lg transition-all bg-emerald-600 text-white' : 'flex-1 py-2 text-xs font-bold rounded-lg transition-all text-zinc-500 hover:text-zinc-300';
+            document.getElementById('tab-mp').className = gateway === 'mp' ? 'flex-1 py-2 text-xs font-bold rounded-lg transition-all bg-emerald-600 text-white' : 'flex-1 py-2 text-xs font-bold rounded-lg transition-all text-zinc-500 hover:text-zinc-300';
+        }
+
+        function updateStats() {
+            document.getElementById('stat-approved').innerText = stats.approved;
+            document.getElementById('stat-rejected').innerText = stats.rejected;
+            document.getElementById('stat-tested').innerText = stats.tested;
+            document.getElementById('stat-loaded').innerText = stats.loaded;
+        }
+
+        async function checkCard(card) {
+            try {
+                const response = await fetch('proxy.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ gateway: currentGateway, card: card })
+                });
+                const data = await response.json();
+                return data.status;
+            } catch (e) { return 'DIE'; }
+        }
+
+        async function startChecking() {
+            const input = document.getElementById('card-input').value.trim();
+            if (!input) return alert('Insira a lista!');
+            const cards = input.split('\n').filter(c => c.trim() !== '');
+            stats.loaded = cards.length; stats.approved = 0; stats.rejected = 0; stats.tested = 0;
+            updateStats();
+            document.getElementById('approved-list').innerHTML = '';
+            document.getElementById('rejected-list').innerHTML = '';
+            isRunning = true;
+
+            for (let card of cards) {
+                if (!isRunning) break;
+                const result = await checkCard(card);
+                stats.tested++;
+                if (result === 'LIVE') {
+                    stats.approved++;
+                    const div = document.createElement('div');
+                    div.className = 'p-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-lg';
+                    div.innerText = `APROVADO | ${card} | =====> @CYBERHAXOR`;
+                    document.getElementById('approved-list').prepend(div);
+                } else {
+                    stats.rejected++;
+                    const div = document.createElement('div');
+                    div.className = 'p-2 bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg';
+                    div.innerText = `RECUSADO | ${card} | =====> @CYBERHAXOR`;
+                    document.getElementById('rejected-list').prepend(div);
+                }
+                updateStats();
+            }
+            isRunning = false;
+        }
+
+        function stopChecking() { isRunning = false; }
+        function copyApproved() {
+            navigator.clipboard.writeText(document.getElementById('approved-list').innerText);
+            alert('Copiado!');
+        }
+    </script>
+</body>
+</html>
